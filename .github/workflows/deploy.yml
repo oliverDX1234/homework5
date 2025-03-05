@@ -67,6 +67,7 @@ jobs:
           echo "${{ secrets.KUBECONFIG }}" | base64 --decode > kubeconfig.yaml
           export KUBECONFIG=$(pwd)/kubeconfig.yaml
           chmod 600 kubeconfig.yaml  # Secure kubeconfig permissions
+          kubectl config set-cluster minikube --server=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}') --insecure-skip-tls-verify=true
           echo "🔍 Checking kubeconfig file..."
           cat kubeconfig.yaml  # ✅ Print kubeconfig content for debugging
 
@@ -100,10 +101,10 @@ jobs:
           kubectl apply --validate=false -f k8s/nginx-config.yaml
           kubectl apply --validate=false -f k8s/mysql-pvc.yaml
           kubectl apply --validate=false -f k8s/mysql.yaml
-          
+
           echo "⏳ Waiting for MySQL to be ready..."
           kubectl wait --for=condition=ready pod -l app=mysql --timeout=300s
-          
+
           kubectl apply --validate=false -f k8s/laravel-app.yaml
           kubectl apply --validate=false -f k8s/nginx.yaml
           kubectl apply --validate=false -f k8s/ingress.yaml
