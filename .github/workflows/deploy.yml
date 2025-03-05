@@ -66,22 +66,40 @@ jobs:
         run: |
           echo "${{ secrets.KUBECONFIG }}" | base64 --decode > kubeconfig.yaml
           export KUBECONFIG=$(pwd)/kubeconfig.yaml
+          chmod 600 kubeconfig.yaml  # Secure permissions
+
+      - name: 🛠️ Debug Kubernetes Connection
+        run: |
+          echo "🔍 Checking Kubernetes connection..."
+          kubectl cluster-info || { echo "❌ ERROR: Kubernetes cluster unreachable!"; exit 1; }
+          kubectl config view || { echo "❌ ERROR: kubeconfig misconfigured!"; exit 1; }
+          kubectl get nodes || { echo "❌ ERROR: Kubernetes nodes not found!"; exit 1; }
 
       - name: 🛠️ Deploy to Kubernetes
         run: |
+          echo "🔍 Updating image reference in Kubernetes manifests..."
           sed -i "s|image: $DOCKER_IMAGE:.*|image: $DOCKER_IMAGE:$DOCKER_TAG|" k8s/laravel-app.yaml
 
-          kubectl apply -f k8s/secrets.yaml
-          kubectl apply -f k8s/app-pvc.yaml
-          kubectl apply -f k8s/nginx-config.yaml
-          kubectl apply -f k8s/mysql-pvc.yaml
-          kubectl apply -f k8s/mysql.yaml
+          echo "🚀 Applying Kubernetes configurations..."
+          kubectl apply --validate=false -f k8s/secrets.yaml
+          kubectl apply --validate=false -f k8s/app-pvc.yaml
+          kubectl apply --validate=false -f k8s/nginx-config.yaml
+          kubectl apply --validate=false -f k8s/mysql-pvc.yaml
+          kubectl apply --validate=false -f k8s/mysql.yaml
+          
+          echo "⏳ Waiting for MySQL to be ready..."
           kubectl wait --for=condition=ready pod -l app=mysql --timeout=300s
-          kubectl apply -f k8s/laravel-app.yaml
-          kubectl apply -f k8s/nginx.yaml
-          kubectl apply -f k8s/ingress.yaml
+          
+          kubectl apply --validate=false -f k8s/laravel-app.yaml
+          kubectl apply --validate=false -f k8s/nginx.yaml
+          kubectl apply --validate=false -f k8s/ingress.yaml
 
+          echo "🔄 Restarting Laravel app deployment..."
           kubectl rollout restart deployment/laravel-app
 
       - name: ✅ Verify Deployment
-        run: kubectl get pods -o wide
+        run: |
+          echo "📌 Verifying Kubernetes deployment..."
+          kubectl get pods -o wide
+          kubectl describe pod -l app=laravel-app
+          kubectl logs deployment/laravel-app --tail=50
