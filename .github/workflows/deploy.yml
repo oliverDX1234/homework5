@@ -66,17 +66,31 @@ jobs:
         run: |
           echo "${{ secrets.KUBECONFIG }}" | base64 --decode > kubeconfig.yaml
           export KUBECONFIG=$(pwd)/kubeconfig.yaml
-          chmod 600 kubeconfig.yaml  # Secure permissions
+          chmod 600 kubeconfig.yaml  # Secure kubeconfig permissions
+          echo "🔍 Checking kubeconfig file..."
+          cat kubeconfig.yaml  # ✅ Print kubeconfig content for debugging
 
       - name: 🛠️ Debug Kubernetes Connection
         run: |
+          export KUBECONFIG=$(pwd)/kubeconfig.yaml
           echo "🔍 Checking Kubernetes connection..."
+          kubectl config view --minify  # ✅ Show active cluster API server
           kubectl cluster-info || { echo "❌ ERROR: Kubernetes cluster unreachable!"; exit 1; }
-          kubectl config view || { echo "❌ ERROR: kubeconfig misconfigured!"; exit 1; }
           kubectl get nodes || { echo "❌ ERROR: Kubernetes nodes not found!"; exit 1; }
+
+      - name: 🛠️ Manually Set Kubernetes Server (If Needed)
+        run: |
+          export KUBECONFIG=$(pwd)/kubeconfig.yaml
+          K8S_SERVER_URL=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
+          echo "🔗 Kubernetes API Server: $K8S_SERVER_URL"
+          if [[ "$K8S_SERVER_URL" == "http://localhost:8080" ]]; then
+            echo "⚠️ Incorrect Kubernetes API URL detected, updating..."
+            kubectl config set-cluster minikube --server=https://your-ngrok-url.ngrok.io
+          fi
 
       - name: 🛠️ Deploy to Kubernetes
         run: |
+          export KUBECONFIG=$(pwd)/kubeconfig.yaml
           echo "🔍 Updating image reference in Kubernetes manifests..."
           sed -i "s|image: $DOCKER_IMAGE:.*|image: $DOCKER_IMAGE:$DOCKER_TAG|" k8s/laravel-app.yaml
 
@@ -99,6 +113,7 @@ jobs:
 
       - name: ✅ Verify Deployment
         run: |
+          export KUBECONFIG=$(pwd)/kubeconfig.yaml
           echo "📌 Verifying Kubernetes deployment..."
           kubectl get pods -o wide
           kubectl describe pod -l app=laravel-app
