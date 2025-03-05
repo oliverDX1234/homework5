@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: laravel-app
+spec:
+  replicas: 1  # Set to 1 for now to avoid multiple writes
+  selector:
+    matchLabels:
+      app: laravel-app
+  template:
+    metadata:
+      labels:
+        app: laravel-app
+    spec:
+      initContainers:
+      - name: init-laravel
+        image: oliverdx1234/laravel-app:latest
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            cp -r /var/www/. /app-files/
+            chown -R www-data:www-data /app-files
+            chmod -R 755 /app-files
+            
+            # Wait for MySQL to be ready
+            until php -r "
+              try {
+                new PDO(
+                  'mysql:host=${DB_HOST};dbname=${DB_DATABASE}',
+                  '${DB_USERNAME}',
+                  '${DB_PASSWORD}'
+                );
+                exit(0);
+              } catch (Exception \$e) {
+                exit(1);
+              }
+            "; do
+              echo "Waiting for MySQL..."
+              sleep 5
+            done
+            
+            # Run migrations
+            php /app-files/artisan migrate --force
+            php /app-files/artisan storage:link
+            php /app-files/artisan cache:clear
+            php /app-files/artisan config:clear
+        env:
+        - name: DB_HOST
+          value: mysql-service
+        - name: DB_DATABASE
+          value: laravel
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: laravel-secrets
+              key: DB_USERNAME
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: laravel-secrets
+              key: DB_PASSWORD
+        volumeMounts:
+        - name: app-files
+          mountPath: /app-files
+      containers:
+      - name: laravel-app
+        image: oliverdx1234/laravel-app:latest
+        imagePullPolicy: Always 
+        ports:
+        - containerPort: 9000
+        env:
+        - name: DB_HOST
+          value: mysql-service
+        - name: DB_DATABASE
+          value: laravel
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: laravel-secrets
+              key: DB_USERNAME
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: laravel-secrets
+              key: DB_PASSWORD
+        volumeMounts:
+        - name: app-files
+          mountPath: /var/www
+      volumes:
+      - name: app-files
+        persistentVolumeClaim:
+          claimName: app-files-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: laravel-app-service
+spec:
+  ports:
+  - port: 9000
+  selector:
+    app: laravel-app 

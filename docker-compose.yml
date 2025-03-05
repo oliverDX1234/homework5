@@ -1,0 +1,56 @@
+services:
+  laravel-app:
+    build:
+      context: ./laravel-app
+    image: oliverdx1234/laravel-app:latest
+    container_name: laravel-app
+    volumes:
+      - ./laravel-app/storage:/var/www/storage 
+      - ./laravel-app/bootstrap/cache:/var/www/bootstrap/cache
+    networks:
+      - ci_network
+    depends_on:
+      db:
+        condition: service_healthy
+    working_dir: /var/www 
+
+  nginx:
+    build:
+      context: ./nginx
+    container_name: nginx
+    restart: always
+    ports:
+      - "8000:80" 
+    volumes:
+      - ./laravel-app:/var/www
+    depends_on:
+      - laravel-app
+    networks:
+      - ci_network
+
+  db:
+    image: mysql:8.0
+    container_name: mysql-db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: laravel
+      MYSQL_USER: laravel
+      MYSQL_PASSWORD: secret
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - ci_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+
+volumes:
+  mysql_data:
+
+networks:
+  ci_network:
+    driver: bridge
