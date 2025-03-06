@@ -18,7 +18,7 @@ class ApiControllerTest extends TestCase
         // Assert the response status is 200 and contains the correct JSON
         $response->assertStatus(200)
             ->assertJson([
-                'status' => 'API is working!'
+                'status' => 'API is working and was updated for Deployment!'
             ]);
     }
 

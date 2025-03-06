@@ -8,7 +8,7 @@ class ApiController extends Controller
 {
     public function status()
     {
-        return response()->json(['status' => 'API is working!']);
+        return response()->json(['status' => 'API is working and was updated for Deployment!']);
     }
 
     public function store()
