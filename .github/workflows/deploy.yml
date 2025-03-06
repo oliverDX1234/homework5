@@ -86,7 +86,7 @@ jobs:
           echo "🔗 Kubernetes API Server: $K8S_SERVER_URL"
           if [[ "$K8S_SERVER_URL" == "http://localhost:8080" ]]; then
             echo "⚠️ Incorrect Kubernetes API URL detected, updating..."
-            kubectl config set-cluster minikube --server=https://your-ngrok-url.ngrok.io
+            kubectl config set-cluster minikube --server=https://0c41-77-29-11-101.ngrok-free.app
           fi
 
       - name: 🛠️ Deploy to Kubernetes
