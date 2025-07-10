@@ -10,6 +10,7 @@ class ApiController extends Controller
     {
         return response()->json(['status' => 'API is working and was updated for Deployment!']);
     }
+    
 
     public function store()
     {
